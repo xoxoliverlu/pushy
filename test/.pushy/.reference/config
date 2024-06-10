@@ -1,0 +1,9 @@
+[core]
+	repositoryformatversion = 0
+	fileMode = false
+	bare = false
+	logallrefupdates = true
+	worktree = /import/ravel/3/z5295931/comp2041/ass1/test
+[user]
+	email = pushy@example.com
+	name = pushy

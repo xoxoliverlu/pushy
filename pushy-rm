@@ -1,0 +1,70 @@
+#!/bin/dash
+
+remove_file() {
+    local file="$1"
+    local force="$2"
+    local cached="$3"
+
+
+    # Check if the file exists in the index
+    if [ -f "./.pushy/index/$file" ]; then
+        if [ "$cached"  = true ]; then
+            if [ "$force" = true ]; then
+                # Remove the file from both index and current directory
+                rm "./.pushy/index/$file"
+                return 0
+            fi
+            if ! cmp -s "$file" "./.pushy/index/$file" && grep -E "$file" "./.pushy/changed_files" > /dev/null
+            then
+                echo "pushy-rm: error: '$file' in index is different to both the working file and the repository"
+            else
+                rm "./.pushy/index/$file"
+            fi
+        else
+            if [ "$force" = true ]; then
+                # Remove the file from both index and current directory
+                rm "$file" "./.pushy/index/$file"
+            else
+                # check if the file is the same as in index folder and it has not been staged for change (add new file)
+                if cmp -s "$file" "./.pushy/index/$file" && ! grep -E "$file" "./.pushy/changed_files"  > /dev/null; then 
+                    # The file in the current directory is the same as in the index, safe to remove from index
+                    rm "./.pushy/index/$file"
+                    rm "$file"
+                elif ! cmp -s "$file" "./.pushy/index/$file" && ! grep -E "$file" "./.pushy/changed_files" > /dev/null
+                then
+                    echo "pushy-rm: error: '$file' in the repository is different to the working file"
+                elif ! cmp -s "$file" "./.pushy/index/$file" && grep -E "$file" "./.pushy/changed_files" > /dev/null
+                then
+                    echo "pushy-rm: error: '$file' in index is different to both the working file and the repository"
+                else 
+                    # The file in the current directory is different from the one in the index
+                    echo "pushy-rm: error: '$file' has staged changes in the index"
+                fi
+            fi
+        fi
+    else
+        echo "pushy-rm: error: '$file' is not in the pushy repository"
+    fi
+}
+if [ ! -d ".pushy" ]
+then
+    echo "pushy-add: error: pushy repository directory .pushy not found"
+    exit 1
+fi
+
+forced=false
+cached=false
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --force) forced=true ;;
+        --cached) cached=true ;;
+        *) break ;;
+    esac
+    shift
+done
+
+for file in "$@";
+do
+    remove_file "$file" "$forced" "$cached"
+done;

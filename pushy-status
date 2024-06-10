@@ -1,0 +1,137 @@
+#!/bin/dash
+
+touch "checked_files"
+
+# get latest commit
+latest_commit=-1;
+for file in ./.pushy/*;
+do
+    if [ -d "$file" ] && [ "$file" != "./.pushy/index" ]
+    then
+        if [ "$(basename "$file")" -gt "$latest_commit" ]
+        then
+            latest_commit=$(basename "$file")
+        fi
+    fi
+done
+
+# current directory
+for file in *;
+    do
+        if [ -d  "$file" ]
+        then
+            continue
+        fi
+        if [ "$file" = "checked_files" ]
+        then
+            continue
+        fi
+        
+        # file changed, staged for change, index same as working folder
+        if cmp -s "$file" "./.pushy/index/$file" && grep -E "$file" "./.pushy/changed_files" > /dev/null && [ -e "./.pushy/$latest_commit/$file" ]
+        then
+            echo "$file - file changed, changes staged for commit"
+        fi
+        
+        # file changed, diffrent changes staged for change
+        if ! (cmp -s "$file" "./.pushy/index/$file") && grep -E "$file" "./.pushy/changed_files" > /dev/null && [ -e "./.pushy/index/$file" ] && [ -e "./.pushy/$latest_commit/$file" ]
+        then
+            echo "$file - file changed, different changes staged for commit"
+        fi
+        
+        
+        # file changed, changes not staged for commit
+        if ! (cmp -s "$file" "./.pushy/index/$file") && ! grep -E "$file" "./.pushy/changed_files" > /dev/null && [ -e "./.pushy/index/$file" ]
+        then
+            echo "$file - file changed, changes not staged for commit"
+        fi
+        
+        # file not changed
+        if (cmp -s "$file" "./.pushy/index/$file") && ! (grep -E "$file"  "./.pushy/changed_files" > /dev/null)
+        then
+            echo "$file - same as repo"
+        fi
+        
+        # added to index
+        if cmp -s "$file" "./.pushy/index/$file" && grep -E "$file" "./.pushy/changed_files" > /dev/null && [ ! -e "./.pushy/$latest_commit/$file" ]
+        then
+            echo "$file - added to index"
+        fi
+        
+        # index different from cwd, already changed, doesn't exist in last commit
+        # added to index, file change
+        if ! (cmp -s "$file" "./.pushy/index/$file") && grep -E "$file" "./.pushy/changed_files" > /dev/null && [ ! -e "./.pushy/$latest_commit/$file" ] && [ -e "./.pushy/index/$file" ]
+        then
+            echo "$file - added to index, file changed"
+        fi
+        
+        # didn't a exist in last commit, exist in cwd
+        # file not tracked
+        if [ ! -e "./.pushy/index/$file" ]  && [ ! -e "./.pushy/$latest_commit/$file" ]
+        then
+            echo "$file - untracked"
+        fi
+        
+        # file deleted from index
+        if [ ! -e "./.pushy/index/$file" ]  && [ -e "./.pushy/$latest_commit/$file" ]
+        then
+            echo "$file - deleted from index"
+        fi
+        
+        echo "$file" >> checked_files
+done >> ./.pushy/output
+
+# index directory
+for file in ./.pushy/index/*;
+do
+    name=$(basename "$file")
+    if [ "$name" = "*" ]
+    then
+        continue
+    fi
+    # if file already checked, continue
+    if grep -E "^$name$" "checked_files" > /dev/null
+    then
+        continue
+    fi
+    
+    if  [ ! -e "./$name" ]  && ! (grep -E "$name" "./.pushy/changed_files" > /dev/null)
+    then
+        echo "$name - file deleted"
+    fi
+    if  [ ! -e "./$name" ] && (grep -E "$name" "./.pushy/changed_files" > /dev/null)
+    then
+        echo "$name - added to index, file deleted"
+    fi
+    # add file to already checked list
+    echo "$file" >> checked_files
+done >> ./.pushy/output
+
+# latest_commit directory
+for file in ./.pushy/"$latest_commit"/*;
+do
+    name=$(basename "$file")
+    if [ "$name" = "*" ] || [ "$name" = "commit_message" ]
+    then
+        continue
+    fi
+    # if file already checked, continue
+    if grep -E "^$name$" "checked_files" > /dev/null
+    then
+        continue
+    fi
+    
+    if [ ! -e "./$name" ] && [ ! -e "./.pushy/index/$name" ]
+    then
+        echo "$name - file deleted, deleted from index"
+    fi
+    
+    # add file to already checked list
+    echo "$file" >> checked_files
+done >> ./.pushy/output
+
+sort ./.pushy/output
+# cat checked_files
+
+rm ./.pushy/output
+rm "checked_files"

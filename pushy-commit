@@ -1,0 +1,89 @@
+#!/bin/dash
+
+check_commit_needed() {
+    # Get the list of files in the index folder
+    index_files=$(ls -A "./.pushy/index")
+
+    # Loop through each file in the index folder
+    for file in $index_files; do
+        if [ "$file" = "changed_file" ]
+        then
+            break
+        fi
+        # Check if the file exists in the last commit
+        if [ -f "./.pushy/$1/$file" ]; then
+            # Compare the content of the file in the index folder with the last commit
+            if ! cmp -s "./.pushy/index/$file" "./.pushy/$1/$file"; then
+                # Files are different, commit is needed
+                return 0
+            fi
+        else
+            # File doesn't exist in the last commit, commit is needed
+            return 0
+        fi
+    done
+
+    # if file existed in last commit and not the current index, then commit is needed
+    for file in ./.pushy/"$1"/*; do
+        filename=$(basename "$file")
+        if [ ! -e "./.pushy/index/$filename" ] && [ "$filename" != "commit_message" ]
+        then
+            return 0
+        fi
+    done
+    # All files are the same, no commit needed
+    return 1
+}
+
+if [ "$#" -lt 2 ]; then
+    echo "Usage: $0 [-m message] <other arguments>"
+    exit 1
+fi
+
+commit_num=0
+
+
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -a) 
+            [ -e './.pushy/changed_files' ] && echo "" > './.pushy/changed_files'
+            for file in ./.pushy/index/*
+            do
+                file_name=$(basename "$file")
+                cat "$file_name" > "$file"
+            done
+            shift
+            ;;
+        -m)
+            message="$2"
+            while [ -d "./.pushy/$commit_num" ]
+            do
+                commit_num=$((commit_num + 1))
+            done
+            [ -e './.pushy/changed_files' ] && echo "" > './.pushy/changed_files'
+            if ! check_commit_needed "$((commit_num - 1))"
+            then
+                echo "nothing to commit"
+                exit 1
+            fi
+            mkdir "./.pushy/$commit_num"
+            if [ -n "$(ls -A "./.pushy/index")" ]
+            then
+                for file in ./.pushy/index/*
+                do
+                    file_name=$(echo "$file" | cut -d'/' -f4)
+                    cat "$file" > "./.pushy/$commit_num/$file_name"
+                done
+            fi
+            echo "$message" > "./.pushy/$commit_num/commit_message"
+            echo "Committed as commit $commit_num"
+            exit 0
+            ;;
+        *)
+            # Store other arguments
+            other_args="$other_args $1"
+            shift
+            ;;
+    esac
+done

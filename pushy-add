@@ -1,0 +1,37 @@
+#!/bin/dash
+
+
+if [ $# -lt 1 ]
+then
+    echo "usage: pushy-add <filenames>"
+fi
+
+if [ ! -d ".pushy" ]
+then
+    echo "pushy-add: error: pushy repository directory .pushy not found"
+    exit 1
+fi
+
+if [ ! -d "./.pushy/index" ]
+then
+    mkdir './.pushy/index'
+fi
+
+for file in "$@"
+do
+    if [ ! -e "$file" ]
+    then
+        if [ -e "./.pushy/index/$file" ]
+        then
+            rm "./.pushy/index/$file"
+            break
+        fi
+        echo "pushy-add: error: can not open '$1'"
+        exit 1
+    fi
+    if ! cmp -s "$file" "./.pushy/index/$file"
+    then
+        cat "$file" > ./.pushy/index/"$file"
+        echo "$file" >> ./.pushy/changed_files
+    fi
+done

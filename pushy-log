@@ -1,0 +1,12 @@
+#!/bin/dash
+
+
+for file in ./.pushy/*
+do
+    if [ -d "$file" ] && [ "$(basename "$file")" != "index" ]
+    then
+        commit_num=$(echo "$file" | cut -d'/' -f3)
+        commit_file="$file/commit_message"
+        echo "$commit_num $(cat "$commit_file")"
+    fi
+done | sort -r

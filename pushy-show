@@ -1,0 +1,33 @@
+#!/bin/dash
+
+
+if [ $# -eq 1 ]; 
+then
+    if echo "$1" | grep -E ".+:.*" > /dev/null
+    then
+        commit=$(echo "$1" | cut -d":" -f1)
+        filename=$(echo "$1" | cut -d":" -f2)
+        if [ ! -d "./.pushy/$commit" ]
+        then
+            echo "pushy-show: error: unknown commit '$commit'"
+            exit 1
+        fi
+        if [ ! -e "./.pushy/$commit/$filename" ]
+        then
+            echo "pushy-show: error: '$filename' not found in commit $commit"
+        else
+            cat "./.pushy/$commit/$filename"
+        fi
+    else
+        filename=$(echo "$1" | cut -d":" -f2)
+        if [ ! -e "./.pushy/index/$filename" ]
+        then
+            echo "pushy-show: error: '$filename' not found in index"
+        else
+            cat "./.pushy/index/$filename"
+        fi
+    fi
+else
+    echo "Usage: $0 [commit]:filename"
+    exit 1
+fi
